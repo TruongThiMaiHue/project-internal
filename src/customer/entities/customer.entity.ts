@@ -10,4 +10,6 @@ export class Customer extends BaseEntity {
     address: string;
     @Column()
     age: number;
+    @Column({ type: 'date',  default: () => 'CURRENT_TIMESTAMP'})
+    createdAt: Date;
 }

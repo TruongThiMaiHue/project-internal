@@ -1,11 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateCustomerDto } from '../dto/create-customer.dto';
-import { UpdateCustomerDto } from '../dto/update-customer.dto';
 import { Customer } from '../entities/customer.entity';
 import { Workbook } from 'exceljs';
-import * as tmp from 'tmp'
+import { Stream } from 'stream';
 
 @Injectable()
 export class CustomerService {
@@ -14,32 +12,23 @@ export class CustomerService {
     private readonly customerRepository: Repository<Customer>,
   ) {}
   
-  async downloadFile() {
+  async downloadFile(res: Stream): Promise<void> {
     const customers = await this.customerRepository.find()
-    
     let row = []
-
-    customers.forEach(doc => {
-     row.push(Object.values(doc))
+    customers.forEach(customer => {
+      row.push(Object.values(customer))
     })
-    let workbook = new Workbook(); 
-    let worksheet = workbook.addWorksheet('Customers'); 
-    row.unshift(Object.keys(customers[0]))
+    let workbook = new Workbook()
+    let worksheet = workbook.addWorksheet('Customers')
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'NAME', key: 'name', width: 20 },
+      { header: 'ADDRESS', key: 'address', width: 20},
+      { header: 'AGE', key: 'age', width: 10},
+      { header: 'CREATE AT', key: 'create_at', width: 20}
+    ]
     worksheet.addRows(row)
-
-    let File = await new Promise((resolve, reject) => {
-      tmp.file({ discardDescriptor: true, prefix: 'MyExcelSheet', postfix: '.xlsx', mode: parseInt('0600', 8) }, async(err, file) => {
-        if (err){
-          throw new BadRequestException(err);
-        }
-        workbook.xlsx.writeFile(file).then(_ => {
-          resolve(file)
-        }).catch(err => {
-          throw new BadRequestException(err);
-        })
-      })
-    })
-    return File
+    return await workbook.xlsx.write(res)
   }
 
 }
